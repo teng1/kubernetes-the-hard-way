@@ -61,19 +61,6 @@ if File.exist?(CONFIG)
 end
 
 $box = SUPPORTED_OS[$os][:box]
-# if $inventory is not set, try to use example
-$inventory = "inventory/sample" if ! $inventory
-$inventory = File.absolute_path($inventory, File.dirname(__FILE__))
-
-# if $inventory has a hosts.ini file use it, otherwise copy over
-# vars etc to where vagrant expects dynamic inventory to be
-if ! File.exist?(File.join(File.dirname($inventory), "hosts.ini"))
-  $vagrant_ansible = File.join(File.dirname(__FILE__), ".vagrant", "provisioners", "ansible")
-  FileUtils.mkdir_p($vagrant_ansible) if ! File.exist?($vagrant_ansible)
-  if ! File.exist?(File.join($vagrant_ansible,"inventory"))
-    FileUtils.ln_s($inventory, File.join($vagrant_ansible,"inventory"))
-  end
-end
 
 if Vagrant.has_plugin?("vagrant-proxyconf")
     $no_proxy = ENV['NO_PROXY'] || ENV['no_proxy'] || "127.0.0.1,localhost"
@@ -174,27 +161,6 @@ Vagrant.configure("2") do |config|
       }
 
       # Only execute the Ansible provisioner once, when all the machines are up and ready.
-      if i == $num_instances && $kube_provision_cluster == true
-        node.vm.provision "ansible" do |ansible|
-          ansible.playbook = $playbook
-          if File.exist?(File.join( $inventory, "hosts.ini"))
-            ansible.inventory_path = $inventory
-          end
-          ansible.become = true
-          ansible.limit = "all"
-          ansible.host_key_checking = false
-          ansible.raw_arguments = ["--forks=#{$num_instances}", "--flush-cache", "--ask-become-pass"]
-          ansible.host_vars = host_vars
-          #ansible.tags = ['download']
-          ansible.groups = {
-            "etcd" => ["#{$instance_name_prefix}-[1:#{$etcd_instances}]"],
-            "kube-master" => ["#{$instance_name_prefix}-[1:#{$kube_master_instances}]"],
-            "kube-node" => ["#{$instance_name_prefix}-[1:#{$kube_node_instances}]"],
-            "k8s-cluster:children" => ["kube-master", "kube-node"],
-          }
-        end
-      end
-
     end
   end
 end
