@@ -1,0 +1,103 @@
+---
+- name: Install CFSSL
+  get_url:
+    url: https://pkg.cfssl.org/R1.2/cfssl_linux-amd64
+    dest: /opt/bin/cfssl
+    mode: 0655
+
+- name: Install CFSSL JSON
+  get_url: 
+    url: https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
+    dest: /opt/bin/cfssljson
+    mode: 0655
+
+- name: Kube PKI dir
+  file:
+    path: "{{ pki_dir }}"
+    state: directory
+    owner: core
+    group: core 
+
+# Certificate Authority creation  
+- name: Deploy CA template
+  template: 
+    src: csr.json.j2
+    dest: "{{ pki_dir }}/ca-csr.json"
+    owner: core 
+    group: core 
+  vars:
+    common_name: kubernetes
+
+- name: Create CA 
+  shell: cfssl gencert -initca ca-csr.json | cfssljson -bare ca
+  args:
+    chdir: "{{ pki_dir }}"
+  
+ 
+- name: Deploy admin tmplate
+  template: 
+    src: csr.json.j2
+    dest: "{{ pki_dir }}/admin-csr.json"
+  vars:
+    common_name: system:masters
+    
+- name: Deploy Controller manager tmplate
+  template: 
+    src: csr.json.j2
+    dest: "{{ pki_dir }}/kube-controller-manager-csr.json"
+  vars:
+    common_name: system:kube-controller-manager
+
+- name: Deploy kube proxy template
+  template:
+    src: csr.json.j2
+    dest: "{{ pki_dir }}/kube-proxy-csr.json"
+  vars:
+    common_name: system:kube-proxy
+
+- name: Deploy kube scheduler template
+  template: 
+    src: csr.json.j2
+    dest: "{{ pki_dir }}/kube-scheduler-csr.json"
+  vars:
+    common_name: system:kube-scheduler
+
+- name: Deploy kubernetes api server template
+  template: 
+    src: csr.json.j2
+    dest: "{{ pki_dir }}/kubernetes-api-csr.json"
+  vars:
+    common_name: kube-api
+
+- name: Deploy service account template
+  template: 
+    src: csr.json.j2
+    dest: "{{ pki_dir }}/service-account-csr.json"
+  vars:
+    common_name: service-account
+
+- name: Sign cetificates 
+  shell: |
+    cfssl gencert \
+    -ca=ca.pem \
+    -ca-key=ca-key.pem \
+    -config=ca-config.json \
+    -profile=kubernetes \
+    "{{ item }}"-csr.json | cfssljson -bare "{{ item }}"
+  with_items:
+    - admin
+    - kube-controller-manager
+    - kube-scheduler
+    - kube-proxy
+    - service-account
+
+- name: Deploy kube node templates
+  template: 
+    src: csr.json.j2
+    dest: "{{ pki_dir }}/node{{ item }}-csr.json"
+  vars:
+    common_name: system:node:node{{ item }}
+  with_items:
+    - 1
+    - 2
+    - 3

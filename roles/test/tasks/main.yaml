@@ -1,0 +1,9 @@
+---
+- name: Test git
+  git: 
+    repo: "git@github.com:teng1/tf-aws-vpc.git" 
+    dest: ~/repotest/tf-aws-vpc
+  register: result_git
+- debug:
+    msg: "{{result_git}}"
+
