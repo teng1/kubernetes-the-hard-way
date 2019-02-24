@@ -3,14 +3,28 @@
   get_url: 
     url: https://github.com/coreos/etcd/releases/download/v{{ etcd_release }}/etcd-v{{ etcd_release }}-linux-amd64.tar.gz
     dest: "{{ core_home }}"
+  tags: etcd
+
 
 # fix this
-- name: Install Binary
+- name: Unarchive binary
   unarchive:
     src: "{{ core_home }}/etcd-v{{ etcd_release }}-linux-amd64.tar.gz"
-    dest: /opt/bin/
+    dest: "{{ core_home }}"
     mode: 0655
     remote_src: yes
+  tags: etcd
+
+- name: Copy to /opt/bin
+  copy: 
+    src: "{{ item }}"
+    dest: /opt/bin
+    remote_src: yes
+    mode: 0655
+  with_items:
+    - "{{ core_home }}/etcd-v{{ etcd_release }}-linux-amd64/etcd"
+    - "{{ core_home }}/etcd-v{{ etcd_release }}-linux-amd64/etcdctl"
+  tags: etcd
 
 - name: Make etcd directories
   file:
@@ -19,18 +33,21 @@
   with_items: 
     - /etc/etcd
     - /var/lib/etcd 
+  tags: etcd
 
 - name: Copy keys into etcd 
   copy: 
     src: "{{ pki_dir }}/{{ item }}"
     dest: /etc/etcd
     remote_src: yes 
+    mode: 0655
   with_items:
     - kubernetes-api.pem
     - kubernetes-api-key.pem
+  tags: etcd
 
 - name: Apply etcd template
   template:
     src: etcd.service.j2
     dest: /etc/systemd/system/etcd.service
-
+  tags: etcd
