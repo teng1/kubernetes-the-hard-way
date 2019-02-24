@@ -1,0 +1,36 @@
+---
+- name: Gen list to copy 
+  find: 
+    paths: "{{ pki_dir }}"
+    patterns: '*.pem'
+  register: found_certs
+  when: ansible_hostname == 'node1'
+
+- name: Fetch found certs
+  fetch: 
+    src: "{{ item.path }}"
+    dest: roles/distribute-keys/files/
+    flat: yes
+  with_items:
+    - "{{ found_certs.files }}"
+  when: ansible_hostname == 'node1'
+
+- name: Gen list to Distribute 
+  find: 
+    paths: roles/distribute-keys/files/
+    patterns: '*.pem'
+  register: found_certs_to_dist
+  delegate_to: localhost
+  become: false
+
+- name: Ensure PKI dir on all hosts
+  file: 
+    path: "{{ pki_dir }}"
+    state: directory
+
+- name: Distribute to cluster
+  copy: 
+    src: "{{ item.path }}"
+    dest: "{{ pki_dir }}"
+  with_items:
+    - "{{ found_certs_to_dist.files }}"

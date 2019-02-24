@@ -1,0 +1,2 @@
+#Vars for CSR requests.
+pki_dir: /home/core/kube_pki

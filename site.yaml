@@ -1,10 +1,8 @@
 ---
-# - hosts: all
-#   gather_facts: False
-#   roles:
-#     - bootstrap-os
-
-- hosts: node1
+- hosts: all
   gather_facts: False
   roles:
-    - certs
+    # - bootstrap-os
+    - gen-certs
+    - distribute-keys
+

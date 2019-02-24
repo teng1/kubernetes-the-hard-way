@@ -1,4 +1,5 @@
 ---
+# CFSSL for COREOS
 - name: Install CFSSL
   get_url:
     url: https://pkg.cfssl.org/R1.2/cfssl_linux-amd64

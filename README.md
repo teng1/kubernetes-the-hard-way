@@ -14,3 +14,6 @@ Vagrant up
 ansible-playbook site.yaml -i inventory/coreos-lab/hosts.ini --become
 
 ```
+```
+ls -altr | grep key | cut -d ' ' -f9 | sed -s 's/^/ - /' | cut -d '.' -f 1 | sed 's/....$//'
+```
