@@ -4,7 +4,7 @@
     url: https://pkg.cfssl.org/R1.2/cfssl_linux-amd64
     dest: /opt/bin/cfssl
     mode: 0655
-
+ 
 - name: Install CFSSL JSON
   get_url: 
     url: https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
@@ -18,86 +18,71 @@
     owner: core
     group: core 
 
-# Certificate Authority creation  
-- name: Deploy CA template
-  template: 
-    src: csr.json.j2
-    dest: "{{ pki_dir }}/ca-csr.json"
-    owner: core 
-    group: core 
-  vars:
-    common_name: kubernetes
-
-- name: Create CA 
-  shell: cfssl gencert -initca ca-csr.json | cfssljson -bare ca
-  args:
-    chdir: "{{ pki_dir }}"
-  
- 
-- name: Deploy admin tmplate
-  template: 
-    src: csr.json.j2
-    dest: "{{ pki_dir }}/admin-csr.json"
-  vars:
-    common_name: system:masters
-    
-- name: Deploy Controller manager tmplate
-  template: 
-    src: csr.json.j2
-    dest: "{{ pki_dir }}/kube-controller-manager-csr.json"
-  vars:
-    common_name: system:kube-controller-manager
-
-- name: Deploy kube proxy template
+# CSR creation 
+- name: Render CSRs
   template:
     src: csr.json.j2
-    dest: "{{ pki_dir }}/kube-proxy-csr.json"
+    dest: "{{ pki_dir }}/{{ item.split('_')[0] }}-csr.json"
   vars:
-    common_name: system:kube-proxy
+    common_name: "{{ item.split('_')[1] }}"
+  with_items:
+   - ca_kubernetes
+   - admin_system:masters
+   - kube-controller-manager_system:kube-controller-manager
+   - kube-proxy_system:kube-proxy
+   - kube-scheduler_system:kube-scheduler
+   - service-account_service-account
+   - kubernetes-api_kube-api
+   - node1_system:node:node1
+   - node2_system:node:node2
+   - node3_system:node:node3
 
-- name: Deploy kube scheduler template
+# Certificate Authority creation  
+- name: Create CA 
+  shell: |
+   cfssl gencert -initca ca-csr.json | cfssljson -bare ca
+  args:
+    chdir: "{{ pki_dir }}"
+    creates: ca-key.pem
+
+- name: CA Configuration template
   template: 
-    src: csr.json.j2
-    dest: "{{ pki_dir }}/kube-scheduler-csr.json"
-  vars:
-    common_name: system:kube-scheduler
+    src: ca-config.json.j2
+    dest: "{{ pki_dir }}/ca-config.json"
 
-- name: Deploy kubernetes api server template
-  template: 
-    src: csr.json.j2
-    dest: "{{ pki_dir }}/kubernetes-api-csr.json"
-  vars:
-    common_name: kube-api
-
-- name: Deploy service account template
-  template: 
-    src: csr.json.j2
-    dest: "{{ pki_dir }}/service-account-csr.json"
-  vars:
-    common_name: service-account
-
-- name: Sign cetificates 
+# Certificate Signing
+- name: Sign server cetificates 
   shell: |
     cfssl gencert \
     -ca=ca.pem \
     -ca-key=ca-key.pem \
     -config=ca-config.json \
-    -profile=kubernetes \
-    "{{ item }}"-csr.json | cfssljson -bare "{{ item }}"
+    -profile=kubernetes {{ item }}-csr.json | cfssljson -bare {{ item }}
   with_items:
     - admin
     - kube-controller-manager
     - kube-scheduler
     - kube-proxy
     - service-account
+  args: 
+    chdir: "{{ pki_dir }}"
+    creates: "{{ item }}-key.pem"
 
-- name: Deploy kube node templates
-  template: 
-    src: csr.json.j2
-    dest: "{{ pki_dir }}/node{{ item }}-csr.json"
-  vars:
-    common_name: system:node:node{{ item }}
+- name: Sign kubelet and kube-api cetificates 
+  shell: |
+    cfssl gencert \
+    -ca=ca.pem \
+    -ca-key=ca-key.pem \
+    -config=ca-config.json \
+    -hostname={{ item.split("_")[0] }},{{ item.split("_")[1] }},{{ item.split("_")[2] }} \
+    -profile=kubernetes {{ item.split("_")[0] }}-csr.json | cfssljson -bare {{ item.split("_")[0] }}
   with_items:
-    - 1
-    - 2
-    - 3
+    - node1_172.17.8.101_10.0.2.15
+    - node2_172.17.8.102_10.0.2.15
+    - node3_172.17.8.103_10.0.2.15
+    - kubernetes-api_172.17.8.101_172.17.8.102,172.17.8.103,127.0.0.1,kuberentes.default
+  args: 
+    chdir: "{{ pki_dir }}"
+    creates: "{{ item.split('_')[0] }}-key.pem"
+
+

@@ -1,4 +1,5 @@
 #Vars for CSR requests.
 pki_dir: /home/core/kube_pki
-common_name: kubernetes
+common_name: "kubernetes"
 rsa_algo_size: 4096
+cert_expiry: 8760h
