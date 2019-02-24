@@ -5,4 +5,5 @@
     # - bootstrap-os
     - gen-certs
     - distribute-keys
+    - etcd
 

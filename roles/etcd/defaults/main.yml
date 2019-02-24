@@ -1,0 +1,5 @@
+---
+etcd_release: 3.3.12
+core_home: /home/core
+pki_dir: /home/core/kube_pki
+
